@@ -1,5 +1,5 @@
 # Shrine::Plugins::Transloadit
-AWS Lambda integration for Shrine 
+Provides [AWS Lambda] integration for [Shrine]
 
 ## License
 
