@@ -4,7 +4,7 @@ Gem::Specification.new do |gem|
   gem.name          = 'shrine-lambda'
   gem.version       = '0.0.1'
 
-  gem.required_ruby_version = '>= 2.2'
+  gem.required_ruby_version = '>= 2.3'
 
   gem.summary      = 'Provides AWS Lambda integration for Shrine.'
   gem.homepage     = 'https://github.com/texpert/shrine-lambda'
@@ -15,14 +15,15 @@ Gem::Specification.new do |gem|
   gem.files        = Dir['README.md', 'LICENSE.txt', 'lib/**/*.rb', '*.gemspec']
   gem.require_path = 'lib'
 
-  gem.add_dependency 'shrine', '~> 2.6'
   gem.add_dependency 'aws-sdk-lambda', '~> 1.0'
+  gem.add_dependency 'shrine', '~> 2.6'
 
-  gem.add_development_dependency 'rake'
+  gem.add_development_dependency 'aws-sdk-s3', '~> 1.2'
+  gem.add_development_dependency 'dotenv'
   gem.add_development_dependency 'minitest'
   gem.add_development_dependency 'minitest-hooks'
-  gem.add_development_dependency 'dotenv'
-  gem.add_development_dependency 'aws-sdk-s3', '~> 1.2'
+  gem.add_development_dependency 'rake'
+  gem.add_development_dependency 'rubocop', '~> 0.52'
   gem.add_development_dependency 'sequel'
   gem.add_development_dependency 'sqlite3'
 end

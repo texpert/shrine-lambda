@@ -1,0 +1,35 @@
+# These are all the cops that are enabled in the default configuration.
+
+Style/PreferredHashMethods:
+  Description: 'Checks for use of deprecated Hash methods.'
+  StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#hash-key'
+  Enabled: true
+
+Style/AutoResourceCleanup:
+  Description: 'Suggests the usage of an auto resource cleanup version of a method (if available).'
+  Enabled: true
+
+Style/CollectionMethods:
+  Description: 'Preferred collection methods.'
+  StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#map-find-select-reduce-size'
+  Enabled: true
+
+Style/OptionHash:
+  Description: "Don't use option hashes when you can use keyword arguments."
+  Enabled: true
+
+Style/Send:
+  Description: 'Prefer `Object#__send__` or `Object#public_send` to `send`, as `send` may overlap with existing methods.'
+  StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#prefer-public-send'
+  Enabled: true
+
+Style/SymbolArray:
+  Description: 'Use %i or %I for arrays of symbols.'
+  StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#percent-i'
+  Enabled: true
+
+#################### Metrics ################################
+
+Lint/UnneededSplatExpansion:
+  Description: 'Checks for useless array splats.'
+  Enabled: true
