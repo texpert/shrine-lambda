@@ -1,0 +1,69 @@
+# This is the default configuration file. Enabling and disabling is configured
+# in separate files. This file adds all other parameters apart from Enabled.
+
+inherit_from:
+  - enabled.yml
+  - disabled.yml
+
+AllCops:
+  Exclude:
+    - 'db/**/*'
+  # Default formatter will be used if no -f/--format option is given.
+  DisplayCopNames: true
+  # Style guide URLs are not displayed in offense messages by default. Change
+  # behavior by overriding DisplayStyleGuide, or by giving the
+  # -S/--display-style-guide option.
+  DisplayStyleGuide: true
+  # Extra details are not displayed in offense messages by default. Change
+  # behavior by overriding ExtraDetails, or by giving the
+  # -E/--extra-details option.
+  ExtraDetails: true
+  # Additional cops that do not reference a style guide rule may be enabled by
+  # default. Change behavior by overriding StyleGuideCopsOnly, or by giving
+  # the --only-guide-cops option.
+  TargetRubyVersion: 2.3
+
+Style/Semicolon:
+  # Allow ; to separate several expressions on the same line.
+  AllowAsExpressionSeparator: true
+
+Style/StringLiterals:
+  ConsistentQuotesInMultiline: true
+
+##################### Metrics ##################################
+
+Metrics/AbcSize:
+  # The ABC size is a calculated magnitude, so this number can be a Fixnum or
+  # a Float.
+  Max: 30
+
+Metrics/ClassLength:
+  CountComments: false  # count full line comments?
+  Max: 200
+
+Metrics/ModuleLength:
+  CountComments: false  # count full line comments?
+  Max: 200
+
+# Avoid complex methods.
+Metrics/CyclomaticComplexity:
+  Max: 10
+
+Metrics/LineLength:
+  Max: 120
+
+Metrics/MethodLength:
+  CountComments: false  # count full line comments?
+  Max: 25
+
+Metrics/PerceivedComplexity:
+  Max: 8
+
+Metrics/BlockLength:
+  CountComments: false
+  Max: 100
+  Exclude:
+    - 'Rakefile'
+    - '**/*.rake'
+    - 'spec/**/*.rb'
+    - 'db/**/*.rb'
