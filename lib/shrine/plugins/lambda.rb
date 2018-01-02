@@ -18,7 +18,7 @@ class Shrine
                    secret_access_key: :required,
                    session_token: :optional,
                    stub_responses: :optional,
-                   validate_params: :optional}.freeze
+                   validate_params: :optional }.freeze
 
       Error = Class.new(Shrine::Error)
 
@@ -63,14 +63,22 @@ class Shrine
         # checking progress of the assembly.
         #
         # It raises a `Shrine::Error` if AWS Lambda returned an error.
-        def lambda_process(cached_file = get)
+        def lambda_process(cached_file)
           assembly = store.lambda_process(cached_file, context)
-          response = Shrine.lambda_client.invoke({ function_name: assembly[:function],
-                                                   invocation_type: 'RequestResponse',
-                                                   log_type: 'Tail',
-                                                   payload: assembly.slice(:original, :versions).to_json })
-          raise Error, "#{response['error']}: #{response['message']}" if response['error']
-          cached_file.metadata['lambda_response'] = response.body.to_json
+          origin = Shrine.storages[:cache]
+          target = Shrine.storages[:store]
+          response = Shrine.lambda_client.invoke(function_name: assembly[:function],
+                                                 invocation_type: 'RequestResponse',
+                                                 log_type: 'Tail',
+                                                 payload: { storages: [cache: { name: origin.bucket.name,
+                                                                                prefix: origin.prefix },
+                                                                       store: { name: target.bucket.name,
+                                                                                prefix: target.prefix }],
+                                                            path:        store.generate_location(cached_file, context),
+                                                            callbackURL: Shrine.opts[:callback_url] }
+                                                               .merge(assembly.slice(:original, :versions)).to_json)
+          raise Error, "#{response['error']}: #{response['message']}" if response.function_error
+          cached_file.metadata['lambda_response'] = response.payload
           swap(cached_file) || _set(cached_file)
         end
       end
