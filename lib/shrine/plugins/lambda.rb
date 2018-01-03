@@ -6,6 +6,7 @@ class Shrine
   module Plugins
     module Lambda
       SETTINGS = { access_key_id: :required,
+                   buckets: :required,
                    callback_url: :optional,
                    convert_params: :optional,
                    endpoint: :optional,
@@ -42,8 +43,8 @@ class Shrine
       end
 
       module AttacherClassMethods
-        # Loads the attacher from the data, and triggers AWS Lambda
-        # processing. Intended to be used in a background job.
+        # Loads the attacher from the data, and triggers its instance AWS Lambda
+        # processing method. Intended to be used in a background job.
         def lambda_process(data)
           attacher = load(data)
           cached_file = attacher.uploaded_file(data['attachment'])
@@ -53,30 +54,23 @@ class Shrine
       end
 
       module AttacherMethods
-        # Triggers AWS Lambda processing defined by the user in
-        # `Shrine#lambda_process`. It dumps the attacher in the payload of
-        # the request, so that it's included in the webhook and that we know
-        # which webhook belongs to which record/attachment.
+        # Triggers AWS Lambda processing defined by the user in the uploader's
+        # `Shrine#lambda_process`.
         #
-        # After the AWS Lambda assembly was submitted, the response is saved
-        # into cached file's metadata, which can then be reloaded at will for
+        # After the AWS Lambda function was invoked, the response is saved
+        # into the cached file's metadata, which can then be reloaded at will for
         # checking progress of the assembly.
         #
         # It raises a `Shrine::Error` if AWS Lambda returned an error.
         def lambda_process(cached_file)
-          assembly = store.lambda_process(cached_file, context)
-          origin = Shrine.storages[:cache]
-          target = Shrine.storages[:store]
-          response = Shrine.lambda_client.invoke(function_name: assembly[:function],
+          function, assembly = store.lambda_process(context)
+          response = Shrine.lambda_client.invoke(function_name: function,
                                                  invocation_type: 'RequestResponse',
-                                                 log_type: 'Tail',
-                                                 payload: { storages: [cache: { name: origin.bucket.name,
-                                                                                prefix: origin.prefix },
-                                                                       store: { name: target.bucket.name,
-                                                                                prefix: target.prefix }],
+                                                 payload: { storages:    Shrine.opts[:buckets],
                                                             path:        store.generate_location(cached_file, context),
-                                                            callbackURL: Shrine.opts[:callback_url] }
-                                                               .merge(assembly.slice(:original, :versions)).to_json)
+                                                            callbackURL: Shrine.opts[:callback_url],
+                                                            original: cached_file,
+                                                            versions: assembly }.to_json)
           raise Error, "#{response['error']}: #{response['message']}" if response.function_error
           cached_file.metadata['lambda_response'] = response.payload
           swap(cached_file) || _set(cached_file)
