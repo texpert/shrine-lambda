@@ -5,20 +5,35 @@ require 'aws-sdk-lambda'
 class Shrine
   module Plugins
     module Lambda
-      SETTINGS = { access_key_id: :required, callback_url: :optional, region: :required,
-                   secret_access_key: :required }.freeze
+      SETTINGS = { access_key_id: :required,
+                   buckets: :required,
+                   callback_url: :optional,
+                   convert_params: :optional,
+                   endpoint: :optional,
+                   log_formatter: :optional,
+                   log_level: :optional,
+                   logger: :optional,
+                   profile: :optional,
+                   region: :required,
+                   retry_limit: :optional,
+                   secret_access_key: :required,
+                   session_token: :optional,
+                   stub_responses: :optional,
+                   validate_params: :optional }.freeze
 
       Error = Class.new(Shrine::Error)
 
       # If promoting was not yet overridden, it is set to automatically trigger
       # Lambda processing defined in `Shrine#lambda_process`.
       def self.configure(uploader, settings = {})
-        SETTINGS.each_key do |key, value|
-          uploader.opts[key] = settings.fetch(key, uploader.opts[key])
-          raise Error, "The :#{key} is required for Lambda plugin" if value == :required && uploader.opts[key].nil?
+        settings.each do |key, value|
+          raise Error, "The :#{key} is not supported by the Lambda plugin" unless SETTINGS[key]
+          uploader.opts[key] = value || uploader.opts[key]
+          if SETTINGS[key] == :required && uploader.opts[key].nil?
+            raise Error, "The :#{key} is required for Lambda plugin"
+          end
         end
 
-        # TODO: Check this - seems it have to be a requirement, not an option
         uploader.opts[:backgrounding_promote] ||= proc { lambda_process }
       end
 
@@ -27,12 +42,47 @@ class Shrine
         uploader.plugin :backgrounding
       end
 
+      module AttacherClassMethods
+        # Loads the attacher from the data, and triggers its instance AWS Lambda
+        # processing method. Intended to be used in a background job.
+        def lambda_process(data)
+          attacher = load(data)
+          cached_file = attacher.uploaded_file(data['attachment'])
+          attacher.lambda_process(cached_file)
+          attacher
+        end
+      end
+
+      module AttacherMethods
+        # Triggers AWS Lambda processing defined by the user in the uploader's
+        # `Shrine#lambda_process`.
+        #
+        # After the AWS Lambda function was invoked, the response is saved
+        # into the cached file's metadata, which can then be reloaded at will for
+        # checking progress of the assembly.
+        #
+        # It raises a `Shrine::Error` if AWS Lambda returned an error.
+        def lambda_process(cached_file)
+          function, assembly = store.lambda_process(context)
+          response = Shrine.lambda_client.invoke(function_name: function,
+                                                 invocation_type: 'RequestResponse',
+                                                 payload: { storages:    Shrine.opts[:buckets],
+                                                            path:        store.generate_location(cached_file, context),
+                                                            callbackURL: Shrine.opts[:callback_url],
+                                                            original: cached_file,
+                                                            versions: assembly }.to_json)
+          raise Error, "#{response['error']}: #{response['message']}" if response.function_error
+          cached_file.metadata['lambda_response'] = response.payload
+          swap(cached_file) || _set(cached_file)
+        end
+      end
+
       module ClassMethods
         # Creates a new AWS Lambda client
         # @param (see Aws::Lambda::Client#initialize)
-        def lambda(access_key_id:     opts[:access_key_id],
-                   secret_access_key: opts[:secret_access_key],
-                   region:            opts[:region], **args)
+        def lambda_client(access_key_id:     opts[:access_key_id],
+                          secret_access_key: opts[:secret_access_key],
+                          region:            opts[:region], **args)
 
           Aws::Lambda::Client.new(args.merge!(access_key_id:     access_key_id,
                                               secret_access_key: secret_access_key,
@@ -47,16 +97,16 @@ class Shrine
         def lambda_function_list(master_region: nil, function_version: 'ALL', marker: nil, items: 100, force: false)
           fl = opts[:lambda_function_list]
           return fl unless force || fl.nil? || fl.empty?
-          opts[:lambda_function_list] = lambda.list_functions(master_region: master_region,
-                                                              function_version: function_version,
-                                                              marker: marker,
-                                                              max_items: items)
+          opts[:lambda_function_list] = lambda_client.list_functions(master_region: master_region,
+                                                                     function_version: function_version,
+                                                                     marker: marker,
+                                                                     max_items: items)
         end
       end
 
       module InstanceMethods
         # A cached instance of an AWS Lambda client.
-        def lambda
+        def lambda_client
           @lambda ||= self.class.lambda
         end
 
