@@ -5,7 +5,7 @@ require 'aws-sdk-lambda'
 class Shrine
   module Plugins
     module Lambda
-      SETTINGS = { access_key_id: :required,
+      SETTINGS = { access_key_id: :optional,
                    buckets: :required,
                    callback_url: :optional,
                    convert_params: :optional,
@@ -16,7 +16,7 @@ class Shrine
                    profile: :optional,
                    region: :required,
                    retry_limit: :optional,
-                   secret_access_key: :required,
+                   secret_access_key: :optional,
                    session_token: :optional,
                    stub_responses: :optional,
                    validate_params: :optional }.freeze
@@ -50,6 +50,41 @@ class Shrine
           cached_file = attacher.uploaded_file(data['attachment'])
           attacher.lambda_process(cached_file)
           attacher
+        end
+
+        def lambda_save(_headers, _body); end
+
+        def lambda_authorized?(headers, body)
+          incoming_auth_header = auth_header_hash(headers['Authorization'])
+          signer = build_signer(incoming_auth_header['Credential'].split('/'))
+          signature = signer.sign_request(
+            http_method: 'PUT',
+            url: Shrine.opts[:callback_url],
+            headers: { 'X-Amz-Date' => headers['X-Amz-Date'] },
+            body: body
+          )
+          calculated_signature = auth_header_hash(signature.headers['authorization'])['Signature']
+          true if incoming_auth_header['Signature'] == calculated_signature
+        end
+
+        private
+
+        def build_signer(headers)
+          credentials = Aws::SharedCredentials.new(profile_name: 'default').credentials
+          Aws::Sigv4::Signer.new(
+            service: headers[3],
+            region: headers[2],
+            access_key_id: credentials.access_key_id,
+            secret_access_key: credentials.secret_access_key,
+            apply_checksum_header: false,
+            unsigned_headers: %w[content-length user-agent x-amzn-trace-id]
+          )
+        end
+
+        def auth_header_hash(headers)
+          auth_header = headers.split(/ |, |=/)
+          auth_header.shift
+          Hash[*auth_header]
         end
       end
 
