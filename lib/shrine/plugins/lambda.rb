@@ -116,7 +116,7 @@ class Shrine
 
         # A cached instance of an AWS Lambda client.
         def lambda_client
-          @lambda_client ||= self.class.lambda_client
+          @lambda_client ||= Shrine.lambda_client
         end
       end
 
