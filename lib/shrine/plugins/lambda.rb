@@ -19,6 +19,7 @@ class Shrine
                    secret_access_key: :optional,
                    session_token: :optional,
                    stub_responses: :optional,
+                   target_storage: :required,
                    validate_params: :optional }.freeze
 
       Error = Class.new(Shrine::Error)
@@ -52,11 +53,9 @@ class Shrine
           attacher
         end
 
-        def lambda_save(_headers, _body); end
-
         def lambda_authorized?(headers, body)
           incoming_auth_header = auth_header_hash(headers['Authorization'])
-          signer = build_signer(incoming_auth_header['Credential'].split('/'))
+          signer = build_signer(incoming_auth_header['Credential'].split('/'), headers['x-amz-security-token'])
           signature = signer.sign_request(
             http_method: 'PUT',
             url: Shrine.opts[:callback_url],
@@ -69,13 +68,14 @@ class Shrine
 
         private
 
-        def build_signer(headers)
+        def build_signer(headers, security_token = nil)
           credentials = Aws::SharedCredentials.new(profile_name: 'default').credentials
           Aws::Sigv4::Signer.new(
             service: headers[3],
             region: headers[2],
             access_key_id: credentials.access_key_id,
             secret_access_key: credentials.secret_access_key,
+            session_token: security_token,
             apply_checksum_header: false,
             unsigned_headers: %w[content-length user-agent x-amzn-trace-id]
           )
@@ -99,16 +99,24 @@ class Shrine
         # It raises a `Shrine::Error` if AWS Lambda returned an error.
         def lambda_process(cached_file)
           function, assembly = store.lambda_process(context)
-          response = Shrine.lambda_client.invoke(function_name: function,
-                                                 invocation_type: 'RequestResponse',
-                                                 payload: { storages:    Shrine.opts[:buckets],
-                                                            path:        store.generate_location(cached_file, context),
-                                                            callbackURL: Shrine.opts[:callback_url],
-                                                            original: cached_file,
-                                                            versions: assembly }.to_json)
-          raise Error, "#{response['error']}: #{response['message']}" if response.function_error
+          response = lambda_client.invoke(function_name: function,
+                                          invocation_type: 'Event',
+                                          payload: { storages:    Shrine.opts[:buckets],
+                                                     path:        store.generate_location(cached_file, context),
+                                                     callbackURL: Shrine.opts[:callback_url],
+                                                     original: cached_file,
+                                                     targetStorage: Shrine.opts[:target_storage],
+                                                     versions: assembly,
+                                                     context: { record_id: context[:record].id,
+                                                                name: context[:name] } }.to_json)
+          raise Error, "#{response.function_error}: #{response.payload.read}" if response.function_error
           cached_file.metadata['lambda_response'] = response.payload
           swap(cached_file) || _set(cached_file)
+        end
+
+        # A cached instance of an AWS Lambda client.
+        def lambda_client
+          @lambda_client ||= self.class.lambda_client
         end
       end
 
@@ -140,11 +148,6 @@ class Shrine
       end
 
       module InstanceMethods
-        # A cached instance of an AWS Lambda client.
-        def lambda_client
-          @lambda ||= self.class.lambda
-        end
-
         def lambda_function_list(force: false)
           fl = opts[:lambda_function_list]
           return fl unless force || fl.nil? || fl.empty?
