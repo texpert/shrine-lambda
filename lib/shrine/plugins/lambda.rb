@@ -125,10 +125,8 @@ class Shrine
           raise Error, 'No Lambda function specified!' unless function
           raise Error, "Function #{function} not available on Lambda!" unless function_available?(function)
 
-          assembly[:path] = store.generate_location(cached_file, context)
+          prepare_assembly(assembly, cached_file, context)
           assembly[:context] = data.except('attachment', 'action', 'phase')
-          cached_file.metadata['key'] = SecureRandom.base64(12)
-          assembly[:attachment] = cached_file
           response = lambda_client.invoke(function_name: function,
                                           invocation_type: 'Event',
                                           payload: assembly.to_json)
@@ -165,6 +163,8 @@ class Shrine
           record.__send__(save_method, validate: false)
         end
 
+        private
+
         # A cached instance of an AWS Lambda client.
         def lambda_client
           @lambda_client ||= Shrine.lambda_client
@@ -174,6 +174,22 @@ class Shrine
         # @param [Symbol] function name
         def function_available?(function)
           Shrine.opts[:lambda_function_list].map(&:function_name).include?(function.to_s)
+        end
+
+        def prepare_assembly(assembly, cached_file, context)
+          assembly[:path] = store.generate_location(cached_file, context)
+          assembly[:storages].each do |s|
+            upload_options = get_upload_options(cached_file, context, s)
+            s[1][:upload_options] = upload_options if upload_options
+          end
+          cached_file.metadata['key'] = SecureRandom.base64(12)
+          assembly[:attachment] = cached_file
+        end
+
+        def get_upload_options(cached_file, context, storage)
+          options = store.opts[:upload_options][storage[0].to_sym]
+          options = options.call(cached_file, context) if options.respond_to?(:call)
+          options
         end
       end
 
