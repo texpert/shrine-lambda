@@ -1,9 +1,9 @@
 # Change Log
 
-## [Unreleased](https://github.com/texpert/shrine-lambda/tree/HEAD)
-
+## [0.0.1](https://github.com/texpert/shrine-lambda/tree/0.0.1) (2018-02-12)
 **Merged pull requests:**
 
+- Prepairing for release. [\#10](https://github.com/texpert/shrine-lambda/pull/10) ([texpert](https://github.com/texpert))
 - Plugin documentation. [\#9](https://github.com/texpert/shrine-lambda/pull/9) ([texpert](https://github.com/texpert))
 - Comply with Shrine's `upload\_options` plugin to be able to set ACL's … [\#8](https://github.com/texpert/shrine-lambda/pull/8) ([texpert](https://github.com/texpert))
 - Finalized and documented the authorization and saving methods.  [\#7](https://github.com/texpert/shrine-lambda/pull/7) ([texpert](https://github.com/texpert))
