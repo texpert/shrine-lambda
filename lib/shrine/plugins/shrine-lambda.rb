@@ -110,11 +110,11 @@ class Shrine
         # function for signing the request.
         #
         # Stores the DB record class and name, attacher data atribute and uploader class names, into the context
-        # attribute of the Lambda function invokation payload. Also stores the cahced file has and the generated path
-        # into the payload.
+        # attribute of the Lambda function invokation payload. Also stores the cached file hash object and the
+        # generated path into the payload.
         #
-        # After the AWS Lambda function was invoked, it raises a `Shrine::Error`if the response is containing errors.
-        # No more response analysis is performed, because Lambda is invoked asynchronously (note the
+        # After the AWS Lambda function invocation, a `Shrine::Error` will be raised if the response is containing
+        # errors. No more response analysis is performed, because Lambda is invoked asynchronously (note the
         # `invocation_type`: 'Event' in the `invoke` call). The results will be sent by Lambda by HTTP requests to
         # the specified `callbackUrl`.
         def lambda_process(data)
