@@ -19,11 +19,9 @@ Gem::Specification.new do |gem|
   gem.files        = Dir['CHANGELOG.md', 'README.md', 'LICENSE', 'lib/**/*.rb', '*.gemspec']
   gem.require_path = 'lib/shrine/plugins'
 
-  gem.metadata = {
-      "bug_tracker_uri"   => "https://github.com/texpert/shrine-lambda/issues",
-      "changelog_uri"     => "https://github.com/texpert/shrine-lambda/CHANGELOG.md",
-      "source_code_uri"   => "https://github.com/texpert/shrine-lambda"
-  }
+  gem.metadata = { 'bug_tracker_uri' => 'https://github.com/texpert/shrine-lambda/issues',
+                   'changelog_uri'   => 'https://github.com/texpert/shrine-lambda/CHANGELOG.md',
+                   'source_code_uri' => 'https://github.com/texpert/shrine-lambda' }
 
   gem.add_dependency 'aws-sdk-lambda', '~> 1.0'
   gem.add_dependency 'aws-sdk-s3', '~> 1.2'
@@ -31,5 +29,5 @@ Gem::Specification.new do |gem|
 
   gem.add_development_dependency 'dotenv'
   gem.add_development_dependency 'rake'
-  gem.add_development_dependency 'rubocop', '~> 0.52'
+  gem.add_development_dependency 'rubocop'
 end
