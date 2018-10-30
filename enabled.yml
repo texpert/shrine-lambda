@@ -33,3 +33,14 @@ Style/SymbolArray:
 Lint/UnneededSplatExpansion:
   Description: 'Checks for useless array splats.'
   Enabled: true
+
+Layout/AlignHash:
+  Enabled: true
+  EnforcedHashRocketStyle: table
+  EnforcedColonStyle: table
+
+Naming/FileName:
+  Description: 'Use snake_case for source file names.'
+  StyleGuide: '#snake-case-files'
+  Enabled: true
+  Exclude: ['lib/shrine/plugins/shrine-lambda.rb']

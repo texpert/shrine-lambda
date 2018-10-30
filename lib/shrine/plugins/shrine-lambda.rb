@@ -5,20 +5,20 @@ require 'aws-sdk-lambda'
 class Shrine
   module Plugins
     module Lambda
-      SETTINGS = { access_key_id: :optional,
-                   callback_url: :required,
-                   convert_params: :optional,
-                   endpoint: :optional,
-                   log_formatter: :optional,
-                   log_level: :optional,
-                   logger: :optional,
-                   profile: :optional,
-                   region: :optional,
-                   retry_limit: :optional,
+      SETTINGS = { access_key_id:     :optional,
+                   callback_url:      :required,
+                   convert_params:    :optional,
+                   endpoint:          :optional,
+                   log_formatter:     :optional,
+                   log_level:         :optional,
+                   logger:            :optional,
+                   profile:           :optional,
+                   region:            :optional,
+                   retry_limit:       :optional,
                    secret_access_key: :optional,
-                   session_token: :optional,
-                   stub_responses: :optional,
-                   validate_params: :optional }.freeze
+                   session_token:     :optional,
+                   stub_responses:    :optional,
+                   validate_params:   :optional }.freeze
 
       Error = Class.new(Shrine::Error)
 
@@ -27,6 +27,7 @@ class Shrine
       def self.configure(uploader, settings = {})
         settings.each do |key, value|
           raise Error, "The :#{key} is not supported by the Lambda plugin" unless SETTINGS[key]
+
           uploader.opts[key] = value || uploader.opts[key]
           if SETTINGS[key] == :required && uploader.opts[key].nil?
             raise Error, "The :#{key} is required for Lambda plugin"
@@ -70,12 +71,13 @@ class Shrine
                                 headers['x-amz-security-token'])
           signature = signer.sign_request(
             http_method: 'PUT',
-            url: Shrine.opts[:callback_url],
-            headers: { 'X-Amz-Date' => headers['X-Amz-Date'] },
-            body: body
+            url:         Shrine.opts[:callback_url],
+            headers:     { 'X-Amz-Date' => headers['X-Amz-Date'] },
+            body:        body
           )
           calculated_signature = auth_header_hash(signature.headers['authorization'])['Signature']
           return false if incoming_auth_header['Signature'] != calculated_signature
+
           [attacher, result]
         end
 
@@ -83,13 +85,13 @@ class Shrine
 
         def build_signer(headers, secret_access_key, security_token = nil)
           Aws::Sigv4::Signer.new(
-            service: headers[3],
-            region: headers[2],
-            access_key_id: headers[0],
-            secret_access_key: secret_access_key,
-            session_token: security_token,
+            service:               headers[3],
+            region:                headers[2],
+            access_key_id:         headers[0],
+            secret_access_key:     secret_access_key,
+            session_token:         security_token,
             apply_checksum_header: false,
-            unsigned_headers: %w[content-length user-agent x-amzn-trace-id]
+            unsigned_headers:      %w[content-length user-agent x-amzn-trace-id]
           )
         end
 
@@ -127,10 +129,11 @@ class Shrine
 
           prepare_assembly(assembly, cached_file, context)
           assembly[:context] = data.except('attachment', 'action', 'phase')
-          response = lambda_client.invoke(function_name: function,
+          response = lambda_client.invoke(function_name:   function,
                                           invocation_type: 'Event',
-                                          payload: assembly.to_json)
+                                          payload:         assembly.to_json)
           raise Error, "#{response.function_error}: #{response.payload.read}" if response.function_error
+
           swap(cached_file) || _set(cached_file)
         end
 
@@ -213,10 +216,11 @@ class Shrine
         def lambda_function_list(master_region: nil, function_version: 'ALL', marker: nil, items: 100, force: false)
           fl = opts[:lambda_function_list]
           return fl unless force || fl.nil? || fl.empty?
-          opts[:lambda_function_list] = lambda_client.list_functions(master_region: master_region,
+
+          opts[:lambda_function_list] = lambda_client.list_functions(master_region:    master_region,
                                                                      function_version: function_version,
-                                                                     marker: marker,
-                                                                     max_items: items).functions
+                                                                     marker:           marker,
+                                                                     max_items:        items).functions
         end
 
         # @param [Array] buckets that will be sent to Lambda function for use
