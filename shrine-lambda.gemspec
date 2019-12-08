@@ -30,5 +30,5 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency 'dotenv'
   gem.add_development_dependency 'rake'
   gem.add_development_dependency 'rspec'
-  gem.add_development_dependency 'rubocop'
+  gem.add_development_dependency 'rubocop', '~> 0.77'
 end

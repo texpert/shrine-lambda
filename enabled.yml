@@ -30,11 +30,11 @@ Style/SymbolArray:
 
 #################### Metrics ################################
 
-Lint/UnneededSplatExpansion:
+Lint/RedundantSplatExpansion:
   Description: 'Checks for useless array splats.'
   Enabled: true
 
-Layout/AlignHash:
+Layout/HashAlignment:
   Enabled: true
   EnforcedHashRocketStyle: table
   EnforcedColonStyle: table
