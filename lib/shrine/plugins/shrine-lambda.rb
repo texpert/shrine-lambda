@@ -25,16 +25,25 @@ class Shrine
       # If promoting was not yet overridden, it is set to automatically trigger
       # Lambda processing defined in `Shrine#lambda_process`.
       def self.configure(uploader, settings = {})
-        settings.each do |key, value|
-          raise Error, "The :#{key} is not supported by the Lambda plugin" unless SETTINGS[key]
+        SETTINGS.each do |key, value|
+          raise Error, "The :#{key} option is required for Lambda plugin" if value == :required && settings[key].nil?
 
-          uploader.opts[key] = value || uploader.opts[key]
-          if SETTINGS[key] == :required && uploader.opts[key].nil?
-            raise Error, "The :#{key} is required for Lambda plugin"
-          end
+          uploader.opts[key] = settings.delete(key) if settings[key]
         end
 
+        @logger = if Shrine.respond_to?(:logger)
+                    Shrine.logger
+                  elsif uploader.respond_to?(:logger)
+                    uploader.logger
+                  end
+
         uploader.opts[:backgrounding_promote] ||= proc { lambda_process }
+
+        return unless @logger
+
+        settings.each do |key, _value|
+          @logger.info "The :#{key} option is not supported by the Lambda plugin"
+        end
       end
 
       # It loads the backgrounding plugin, so that it can override promoting.
@@ -144,7 +153,7 @@ class Shrine
         # Deletes the signing key, if it is present in the original file's metadata, converts the result to a JSON
         # string, and writes this string into the `data_attribute` of the Shrine attacher's record.
         #
-        # Chooses the `save_methodz` either for the ActiveRecord or for Sequel, and saves the record.
+        # Chooses the `save_method` either for the ActiveRecord or for Sequel, and saves the record.
         # @param [Hash] result
         def lambda_save(result)
           versions = result['versions']
