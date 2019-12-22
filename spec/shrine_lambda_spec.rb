@@ -11,6 +11,7 @@ RSpec.describe Shrine::Plugins::Lambda do
   let(:shrine) { Class.new(Shrine) }
   let(:attacher) { shrine::Attacher.new }
   let(:uploader) { attacher.store }
+  let(:settings) { Shrine::Plugins::Lambda::SETTINGS.dup }
 
   before do
     shrine.storages[:store] = s3
@@ -18,10 +19,10 @@ RSpec.describe Shrine::Plugins::Lambda do
 
   describe '#configure' do
     context 'when a known option is passed' do
-      before { shrine.plugin :lambda, Shrine::Plugins::Lambda::SETTINGS.dup }
+      before { shrine.plugin :lambda, settings }
 
       it "sets the received options as uploader's options" do
-        expect(shrine.opts).to include(Shrine::Plugins::Lambda::SETTINGS)
+        expect(shrine.opts).to include(settings)
       end
 
       it 'set the backgrounding_promote option to uploader' do
@@ -57,6 +58,23 @@ RSpec.describe Shrine::Plugins::Lambda do
         expect { shrine.plugin :lambda, option }
           .to raise_exception(Shrine::Plugins::Lambda::Error, 'The :callback_url option is required for Lambda plugin')
       end
+    end
+  end
+
+  describe '#load_dependencies' do
+    context 'when the plugin is registered' do
+      before { allow(shrine).to receive(:plugin).with(:lambda, settings).and_call_original }
+
+      it 'is loading its dependencies via load_dependencies class method' do
+        expect(Shrine::Plugins::Lambda).to receive(:load_dependencies).with(shrine, settings)
+      end
+
+      it "is registering its dependencies via Shrine's plugin method" do
+        expect(shrine).to receive(:plugin).with(:lambda, settings)
+        expect(shrine).to receive(:plugin).with(:backgrounding)
+      end
+
+      after { shrine.plugin :lambda, settings }
     end
   end
 
