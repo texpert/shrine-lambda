@@ -2,7 +2,9 @@
 
 require 'spec_helper'
 
+require 'active_record'
 require 'shrine'
+require 'shrine/plugins/activerecord'
 require 'shrine/plugins/logging'
 require 'shrine/storage/s3'
 require 'shrine-lambda'
@@ -10,11 +12,12 @@ require 'shrine-lambda'
 RSpec.describe Shrine::Plugins::Lambda do
   let(:shrine) { Class.new(Shrine) }
   let(:attacher) { shrine::Attacher.new }
-  let(:uploader) { attacher.store }
+  let(:uploader) { Class.new(Shrine) }
   let(:settings) { Shrine::Plugins::Lambda::SETTINGS.dup }
 
   before do
-    shrine.storages[:store] = s3
+    shrine.storages[:store] = s3(bucket: 'store')
+    shrine.storages[:cache] = s3(bucket: 'cache')
   end
 
   describe '#configure' do
@@ -78,7 +81,55 @@ RSpec.describe Shrine::Plugins::Lambda do
     end
   end
 
-  def s3(**options)
-    Shrine::Storage::S3.new(bucket: 'dummy', stub_responses: true, **options)
+  describe 'AttacherClassMethods' do
+    before do
+      Shrine.plugin :activerecord
+      Shrine.plugin :backgrounding
+      Shrine.plugin :lambda, settings
+
+      Shrine::Attacher.promote do |data|
+        Shrine::Attacher.lambda_process(data)
+      end
+
+      Shrine.storages[:store] = s3(bucket: 'store')
+      Shrine.storages[:cache] = s3(bucket: 'cache')
+
+      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: ':memory:')
+      ActiveRecord::Base.connection.create_table(:users) do |t|
+        t.string :name
+        t.text :avatar_data
+      end
+      ActiveRecord::Base.raise_in_transactional_callbacks = true if ActiveRecord.version < Gem::Version.new('5.0.0')
+
+      user_class = Object.const_set('User', Class.new(ActiveRecord::Base))
+      user_class.table_name = :users
+      user_class.include uploader.attachment(:avatar)
+
+      @user = user_class.new
+      @attacher = @user.avatar_attacher
+    end
+
+    after do
+      ActiveRecord::Base.remove_connection
+      Object.__send__(:remove_const, 'User')
+    end
+
+    describe '#lambda_process' do
+      it 'loads the attacher and calls lambda_process on the attacher instance' do
+        allow(Shrine::Attacher).to receive(:load).and_call_original
+        allow_any_instance_of(Shrine::Attacher).to receive(:lambda_process)
+
+        expect(Shrine::Attacher).to receive(:load)
+        expect_any_instance_of(Shrine::Attacher).to receive(:lambda_process)
+
+        @user.avatar = FakeIO.new('file', filename: 'some_file.jpg')
+        @user.save!
+        @user
+      end
+    end
+  end
+
+  def s3(bucket: nil, **options)
+    Shrine::Storage::S3.new(bucket: bucket, stub_responses: true, **options)
   end
 end
