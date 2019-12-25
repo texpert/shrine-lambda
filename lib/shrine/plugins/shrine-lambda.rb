@@ -37,7 +37,7 @@ class Shrine
                     uploader.logger
                   end
 
-        uploader.opts[:backgrounding_promote] ||= proc { lambda_process }
+        uploader.opts[:backgrounding_promote] = proc { lambda_process }
 
         return unless @logger
 
