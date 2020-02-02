@@ -115,16 +115,36 @@ RSpec.describe Shrine::Plugins::Lambda do
     end
 
     describe '#lambda_process' do
-      it 'loads the attacher and calls lambda_process on the attacher instance' do
-        allow(Shrine::Attacher).to receive(:load).and_call_original
-        allow_any_instance_of(Shrine::Attacher).to receive(:lambda_process)
+      let(:attachment_base_data) do
+        { 'record'       => %w[User 1], 'name' => 'avatar',
+          'shrine_class' => nil, 'action' => 'store', 'phase' => 'store' }
+      end
 
-        expect(Shrine::Attacher).to receive(:load)
-        expect_any_instance_of(Shrine::Attacher).to receive(:lambda_process)
+      context 'when saving user with an attached avatar, the Attacher class method lambda_process is called' do
+        it 'loads the attacher and calls lambda_process on the attacher instance' do
+          @user.avatar = FakeIO.new('file', filename: 'some_file.jpg')
+          data = { 'attachment' => @user.avatar_data }.merge!(attachment_base_data)
 
-        @user.avatar = FakeIO.new('file', filename: 'some_file.jpg')
-        @user.save!
-        @user
+          allow(Shrine::Attacher).to receive(:lambda_process).and_call_original
+          allow(Shrine::Attacher).to receive(:load).and_call_original
+          allow_any_instance_of(Shrine::Attacher).to receive(:lambda_process)
+
+          expect(Shrine::Attacher).to receive(:lambda_process).with(data)
+          expect(Shrine::Attacher).to receive(:load).with(data)
+          expect_any_instance_of(Shrine::Attacher).to receive(:lambda_process).with(data)
+
+          @user.save!
+        end
+      end
+
+      context 'when saving user with no attached avatar, the Attacher class method lambda_process is not called' do
+        it 'loads the attacher and calls lambda_process on the attacher instance' do
+          allow(Shrine::Attacher).to receive(:lambda_process).and_call_original
+
+          expect(Shrine::Attacher).not_to receive(:lambda_process)
+
+          @user.save!
+        end
       end
     end
   end
