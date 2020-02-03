@@ -137,8 +137,8 @@ RSpec.describe Shrine::Plugins::Lambda do
         end
       end
 
-      context 'when saving user with no attached avatar, the Attacher class method lambda_process is not called' do
-        it 'loads the attacher and calls lambda_process on the attacher instance' do
+      context 'when saving user with no attached avatar' do
+        it 'the Attacher class method lambda_process is not called' do
           allow(Shrine::Attacher).to receive(:lambda_process).and_call_original
 
           expect(Shrine::Attacher).not_to receive(:lambda_process)
