@@ -147,6 +147,62 @@ RSpec.describe Shrine::Plugins::Lambda do
         end
       end
     end
+
+    describe '#lambda_authorize' do
+      let(:headers) { JSON.parse(File.read("#{RSPEC_ROOT}/fixtures/event_headers.json")) }
+      let(:body) { File.read("#{RSPEC_ROOT}/fixtures/event_body.txt") }
+      let(:shrine_context) { JSON.parse(body).delete('context') }
+      let(:auth_header) do
+        { 'Credential'    => 'AKIAI2YBN2CKB6DH77ZQ/20200307/us-east-1/handler/aws4_request',
+          'SignedHeaders' => 'host;x-amz-date',
+          'Signature'     => '693c6c6232b5494660d5aed1e7b6f2c8995d2ccc0cc0123545eccbbfc9bf8f9a' }
+      end
+      let(:signature) { double('Aws::Sigv4::Signature') }
+
+      before do
+        @user.save!
+
+        allow(Shrine::Attacher).to receive(:load).and_call_original
+      end
+
+      context 'when signature in received headers matches locally computed AWS signature' do
+        it 'returns the attacher and the hash of the parsed result from Lambda' do
+          expect(Shrine::Attacher).to receive(:load).with(shrine_context).and_return(@user.avatar_attacher)
+
+          allow(Shrine::Attacher).to receive(:auth_header_hash).and_call_original
+          expect(Shrine::Attacher)
+            .to receive(:auth_header_hash).with(headers['Authorization']).and_return(auth_header)
+
+          allow(Shrine::Attacher).to receive(:build_signer).and_call_original
+          expect(Shrine::Attacher).to receive(:build_signer)
+
+          allow_any_instance_of(Aws::Sigv4::Signer).to receive(:sign_request).and_return(signature)
+          expect_any_instance_of(Aws::Sigv4::Signer)
+            .to receive(:sign_request).with(http_method: 'PUT',
+                                            url:         Shrine.opts[:callback_url],
+                                            headers:     { 'X-Amz-Date' => headers['X-Amz-Date'] },
+                                            body:        body)
+
+          allow(signature).to receive(:headers).and_return('authorization' => headers['Authorization'])
+
+          result = Shrine::Attacher.lambda_authorize(headers, body)
+
+          expect(result).to eql([@user.avatar_attacher, JSON.parse(body).except('context')])
+        end
+      end
+
+      context 'when signature in received headers does not match locally computed AWS signature' do
+        it 'returns false' do
+          allow_any_instance_of(Aws::Sigv4::Signer).to receive(:sign_request).and_return(signature)
+
+          allow(signature).to receive(:headers).and_return('authorization' => headers['Authorization'].chop)
+
+          result = Shrine::Attacher.lambda_authorize(headers, body)
+
+          expect(result).to be(false)
+        end
+      end
+    end
   end
 
   def s3(bucket: nil, **options)

@@ -66,24 +66,32 @@ class Shrine
         # received from Lambda request. Then it compares the calculated and received signatures, returning an error if
         # the signatures mismatch.
         #
-        # If the signatures are equal, it returns the attacher and the hash of the parsed result from Lambda.
+        # If the signatures are equal, it returns the attacher and the hash of the parsed result from Lambda, else -
+        # it returns false.
         # @param [Hash] headers from the Lambda request
+        # @option headers [String] 'User-Agent' The AWS Lambda function user agent
+        # @option headers [String] 'Content-Type' 'application/json'
+        # @option headers [String] 'Host'
+        # @option headers [String] 'X-Amz-Date' The AWS Lambda function user agent
+        # @option headers [String] 'Authorization' The AWS authorization string
         # @param [String] body of the Lambda request
-        # @return [Array] Shrine Attacher and the Lambda result (the request body parsed to a hash).
+        # @return [Array] Shrine Attacher and the Lambda result (the request body parsed to a hash) if signature in
+        #   received headers matches locally computed AWS signature
+        # @return [false] if signature in received headers does't match locally computed AWS signature
         def lambda_authorize(headers, body)
           result = JSON.parse(body)
           attacher = load(result.delete('context'))
           incoming_auth_header = auth_header_hash(headers['Authorization'])
 
-          signer = build_signer(incoming_auth_header['Credential'].split('/'),
-                                JSON.parse(attacher.record.__send__(:"#{attacher.data_attribute}"))['metadata']['key'],
-                                headers['x-amz-security-token'])
-          signature = signer.sign_request(
-            http_method: 'PUT',
-            url:         Shrine.opts[:callback_url],
-            headers:     { 'X-Amz-Date' => headers['X-Amz-Date'] },
-            body:        body
+          signer = build_signer(
+            incoming_auth_header['Credential'].split('/'),
+            JSON.parse(attacher.record.__send__(:"#{attacher.data_attribute}") || '{}').dig('metadata', 'key') || 'key',
+            headers['x-amz-security-token']
           )
+          signature = signer.sign_request(http_method: 'PUT',
+                                          url:         Shrine.opts[:callback_url],
+                                          headers:     { 'X-Amz-Date' => headers['X-Amz-Date'] },
+                                          body:        body)
           calculated_signature = auth_header_hash(signature.headers['authorization'])['Signature']
           return false if incoming_auth_header['Signature'] != calculated_signature
 
