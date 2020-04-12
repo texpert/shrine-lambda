@@ -14,13 +14,7 @@ module LoggingHelper
     result
   end
 
-  def capture_logged_by(obj)
-    object = if obj.respond_to?(:logger)
-               obj
-             elsif Shrine.respond_to?(:logger)
-               Shrine
-             end
-
+  def capture_logged_by(object)
     return unless object
 
     begin
