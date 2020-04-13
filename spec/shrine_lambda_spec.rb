@@ -207,7 +207,7 @@ RSpec.describe Shrine::Plugins::Lambda do
     end
 
     describe '#lambda_process' do
-      it 'invokes the lmbda function and saves file storage info and metadata into the DB model' do
+      it 'invokes the lambda function and saves file storage info and metadata into the DB model' do
         @user.avatar = FakeIO.new('file', filename: filename, content_type: 'image/png')
 
         allow_any_instance_of(Shrine::Plugins::Lambda::AttacherMethods)
