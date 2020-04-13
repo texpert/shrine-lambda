@@ -9,15 +9,32 @@ require 'shrine/plugins/logging'
 require 'shrine/storage/s3'
 require 'shrine-lambda'
 
-RSpec.describe Shrine::Plugins::Lambda do
-  let(:shrine) { Class.new(Shrine) }
-  let(:attacher) { shrine::Attacher.new }
-  let(:uploader) { Class.new(Shrine) }
-  let(:settings) { Shrine::Plugins::Lambda::SETTINGS.dup }
+class LambdaUploader < Shrine
+  plugin :versions
 
-  before do
-    shrine.storages[:store] = s3(bucket: 'store')
-    shrine.storages[:cache] = s3(bucket: 'cache')
+  def lambda_process_versions(io, context)
+    assembly = { function: 'ImageResizeOnDemand' } # Here the AWS Lambda function name is specified
+
+    # Check if the original file format is a image format supported by the Sharp.js library
+    if %w[image/gif image/jpeg image/png image/tiff image/webm].include?(io&.data&.dig('metadata', 'mime_type'))
+      case context[:name]
+        when :avatar
+          assembly[:versions] =
+            [{ name: :size40, storage: :store, width: 40, height: 40, format: :jpg }]
+      end
+    end
+    assembly
+  end
+end
+
+RSpec.describe Shrine::Plugins::Lambda do
+  let(:filename) { 'some_file.png' }
+  let(:shrine) { Class.new(Shrine) }
+  let(:lambda_uploader) { Class.new(LambdaUploader) }
+  let(:settings) { Shrine::Plugins::Lambda::SETTINGS.dup }
+  let(:attachment_base_data) do
+    { 'record'       => %w[User 1], 'name' => 'avatar',
+      'shrine_class' => nil, 'action' => 'store', 'phase' => 'store' }
   end
 
   describe '#configure' do
@@ -83,30 +100,8 @@ RSpec.describe Shrine::Plugins::Lambda do
 
   describe 'AttacherClassMethods' do
     before do
-      Shrine.plugin :activerecord
-      Shrine.plugin :backgrounding
-      Shrine.plugin :lambda, settings
-
-      Shrine::Attacher.promote do |data|
-        Shrine::Attacher.lambda_process(data)
-      end
-
-      Shrine.storages[:store] = s3(bucket: 'store')
-      Shrine.storages[:cache] = s3(bucket: 'cache')
-
-      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: ':memory:')
-      ActiveRecord::Base.connection.create_table(:users) do |t|
-        t.string :name
-        t.text :avatar_data
-      end
-      ActiveRecord::Base.raise_in_transactional_callbacks = true if ActiveRecord.version < Gem::Version.new('5.0.0')
-
-      user_class = Object.const_set('User', Class.new(ActiveRecord::Base))
-      user_class.table_name = :users
-      user_class.include uploader.attachment(:avatar)
-
-      @user = user_class.new
-      @attacher = @user.avatar_attacher
+      configure_uploader_class(Shrine)
+      configure_uploader_instance(shrine)
     end
 
     after do
@@ -115,14 +110,9 @@ RSpec.describe Shrine::Plugins::Lambda do
     end
 
     describe '#lambda_process' do
-      let(:attachment_base_data) do
-        { 'record'       => %w[User 1], 'name' => 'avatar',
-          'shrine_class' => nil, 'action' => 'store', 'phase' => 'store' }
-      end
-
       context 'when saving user with an attached avatar, the Attacher class method lambda_process is called' do
         it 'loads the attacher and calls lambda_process on the attacher instance' do
-          @user.avatar = FakeIO.new('file', filename: 'some_file.jpg')
+          @user.avatar = FakeIO.new('file', filename: filename)
           data = { 'attachment' => @user.avatar_data }.merge!(attachment_base_data)
 
           allow(Shrine::Attacher).to receive(:lambda_process).and_call_original
@@ -205,7 +195,42 @@ RSpec.describe Shrine::Plugins::Lambda do
     end
   end
 
-  def s3(bucket: nil, **options)
-    Shrine::Storage::S3.new(bucket: bucket, stub_responses: true, **options)
+  describe 'Attacher instance methods' do
+    before do
+      configure_uploader_class(LambdaUploader)
+      configure_uploader_instance(lambda_uploader)
+    end
+
+    after do
+      ActiveRecord::Base.remove_connection
+      Object.__send__(:remove_const, 'User')
+    end
+
+    describe '#lambda_process' do
+      it 'invokes the lmbda function and saves file storage info and metadata into the DB model' do
+        @user.avatar = FakeIO.new('file', filename: filename, content_type: 'image/png')
+
+        allow_any_instance_of(Shrine::Plugins::Lambda::AttacherMethods)
+          .to receive(:function_available?).and_return(true)
+
+        expect_any_instance_of(LambdaUploader).to receive(:lambda_process_versions).and_call_original
+        allow_any_instance_of(Shrine::Plugins::Lambda::AttacherMethods).to receive(:prepare_assembly)
+        expect_any_instance_of(Shrine::Plugins::Lambda::AttacherMethods).to receive(:prepare_assembly)
+
+        aws_lambda_client = Aws::Lambda::Client.new(stub_responses: true)
+        allow_any_instance_of(Shrine::Plugins::Lambda::AttacherMethods)
+          .to receive(:lambda_client).and_return(aws_lambda_client)
+
+        aws_lambda_client.stub_responses(:invoke, { status_code: 200, headers: { 'header-name' => 'header-value' },
+                                                    body: { function_error: '' }.to_json })
+
+        @user.save!
+        @user.reload.avatar_data
+
+        expect(@user.avatar.storage_key).to eql('cache')
+        expect(@user.avatar.metadata['filename']).to eql(filename)
+        expect(@user.avatar.metadata['mime_type']).to eql('image/png')
+      end
+    end
   end
 end

@@ -138,8 +138,8 @@ class Shrine
         # the specified `callbackUrl`.
         def lambda_process(data)
           cached_file = uploaded_file(data['attachment'])
-          assembly = Shrine.lambda_default_values
-          assembly.merge!(store.lambda_process(cached_file, context))
+          assembly = lambda_default_values
+          assembly.merge!(store.lambda_process_versions(cached_file, context))
           function = assembly.delete(:function)
           raise Error, 'No Lambda function specified!' unless function
           raise Error, "Function #{function} not available on Lambda!" unless function_available?(function)
@@ -184,6 +184,20 @@ class Shrine
         end
 
         private
+
+        def lambda_default_values
+          { callbackURL:    Shrine.opts[:callback_url],
+            copy_original:  true,
+            storages:       buckets_to_use(%i[cache store]),
+            target_storage: :store }
+        end
+
+        # @param [Array] buckets that will be sent to Lambda function for use
+        def buckets_to_use(buckets)
+          buckets.map do |b|
+            { b.to_s => { name: Shrine.storages[b].bucket.name, prefix: Shrine.storages[b].prefix } }
+          end.inject(:merge!)
+        end
 
         # A cached instance of an AWS Lambda client.
         def lambda_client
@@ -238,20 +252,6 @@ class Shrine
                                                                      function_version: function_version,
                                                                      marker:           marker,
                                                                      max_items:        items).functions
-        end
-
-        # @param [Array] buckets that will be sent to Lambda function for use
-        def buckets_to_use(buckets)
-          buckets.map do |b|
-            { b.to_s => { name: Shrine.storages[b].bucket.name, prefix: Shrine.storages[b].prefix } }
-          end.inject(:merge!)
-        end
-
-        def lambda_default_values
-          { callbackURL:    Shrine.opts[:callback_url],
-            copy_original:  true,
-            storages:       Shrine.buckets_to_use(%i[cache store]),
-            target_storage: :store }
         end
       end
     end

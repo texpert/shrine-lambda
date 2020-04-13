@@ -2,6 +2,7 @@
 
 require './spec/support/fakeio'
 require './spec/support/logging_helper'
+require './spec/support/uploaders_helpers'
 
 RSPEC_ROOT = File.dirname __FILE__
 
@@ -102,4 +103,5 @@ RSpec.configure do |config|
   Kernel.srand config.seed
 
   config.include LoggingHelper
+  config.include UploadersHelpers
 end

@@ -171,7 +171,7 @@ the Lambda function's `:access_key_id` received in the request authorization hea
 
 #### Usage
 
-Shrine-Lambda assemblies are built inside the `#lambda_process` method in the `LambdaUploader` class:
+Shrine-Lambda assemblies are built inside the `#lambda_process_versions` method in the `LambdaUploader` class:
 
 ```
 # app/uploaders/lambda_uploader.rb:
@@ -191,7 +191,7 @@ class LambdaUploader < Uploader
 
   plugin :versions
 
-  def lambda_process(io, context)
+  def lambda_process_versions(io, context)
     assembly = { function: 'ImageResizeOnDemand' } # Here the AWS Lambda function name is specified
 
     # Check if the original file format is a image format supported by the Sharp.js library
