@@ -21,7 +21,7 @@ module LoggingHelper
       previous_logger = object.logger
       output = StringIO.new
       object.logger = Logger.new(output)
-      object.logger.formatter = -> (*, message) { "#{message}\n" }
+      object.logger.formatter = ->(*, message) { "#{message}\n" }
 
       yield
 

@@ -44,3 +44,18 @@ Naming/FileName:
   StyleGuide: '#snake-case-files'
   Enabled: true
   Exclude: ['lib/shrine/plugins/shrine-lambda.rb']
+
+Lint/RaiseException:
+  Enabled: true
+
+Lint/StructNewOverride:
+  Enabled: true
+
+Style/HashEachMethods:
+  Enabled: true
+
+Style/HashTransformKeys:
+  Enabled: true
+
+Style/HashTransformValues:
+  Enabled: true

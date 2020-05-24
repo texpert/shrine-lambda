@@ -31,6 +31,6 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency 'dotenv'
   gem.add_development_dependency 'rake'
   gem.add_development_dependency 'rspec'
-  gem.add_development_dependency 'rubocop', '~> 0.81'
+  gem.add_development_dependency 'rubocop', '0.81'
   gem.add_development_dependency 'sqlite3' unless RUBY_ENGINE == 'jruby'
 end
