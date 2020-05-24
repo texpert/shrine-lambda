@@ -29,6 +29,7 @@ Gem::Specification.new do |gem|
 
   gem.add_development_dependency 'activerecord', '>= 4.2.0'
   gem.add_development_dependency 'dotenv'
+  gem.add_development_dependency 'github_changelog_generator'
   gem.add_development_dependency 'rake'
   gem.add_development_dependency 'rspec'
   gem.add_development_dependency 'rubocop', '0.81'
