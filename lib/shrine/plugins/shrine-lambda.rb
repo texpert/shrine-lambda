@@ -25,16 +25,25 @@ class Shrine
       # If promoting was not yet overridden, it is set to automatically trigger
       # Lambda processing defined in `Shrine#lambda_process`.
       def self.configure(uploader, settings = {})
-        settings.each do |key, value|
-          raise Error, "The :#{key} is not supported by the Lambda plugin" unless SETTINGS[key]
+        SETTINGS.each do |key, value|
+          raise Error, "The :#{key} option is required for Lambda plugin" if value == :required && settings[key].nil?
 
-          uploader.opts[key] = value || uploader.opts[key]
-          if SETTINGS[key] == :required && uploader.opts[key].nil?
-            raise Error, "The :#{key} is required for Lambda plugin"
-          end
+          uploader.opts[key] = settings.delete(key) if settings[key]
         end
 
-        uploader.opts[:backgrounding_promote] ||= proc { lambda_process }
+        @logger = if Shrine.respond_to?(:logger)
+                    Shrine.logger
+                  elsif uploader.respond_to?(:logger)
+                    uploader.logger
+                  end
+
+        uploader.opts[:backgrounding_promote] = proc { lambda_process }
+
+        return unless @logger
+
+        settings.each do |key, _value|
+          @logger.info "The :#{key} option is not supported by the Lambda plugin"
+        end
       end
 
       # It loads the backgrounding plugin, so that it can override promoting.
@@ -57,24 +66,32 @@ class Shrine
         # received from Lambda request. Then it compares the calculated and received signatures, returning an error if
         # the signatures mismatch.
         #
-        # If the signatures are equal, it returns the attacher and the hash of the parsed result from Lambda.
+        # If the signatures are equal, it returns the attacher and the hash of the parsed result from Lambda, else -
+        # it returns false.
         # @param [Hash] headers from the Lambda request
+        # @option headers [String] 'User-Agent' The AWS Lambda function user agent
+        # @option headers [String] 'Content-Type' 'application/json'
+        # @option headers [String] 'Host'
+        # @option headers [String] 'X-Amz-Date' The AWS Lambda function user agent
+        # @option headers [String] 'Authorization' The AWS authorization string
         # @param [String] body of the Lambda request
-        # @return [Array] Shrine Attacher and the Lambda result (the request body parsed to a hash).
+        # @return [Array] Shrine Attacher and the Lambda result (the request body parsed to a hash) if signature in
+        #   received headers matches locally computed AWS signature
+        # @return [false] if signature in received headers does't match locally computed AWS signature
         def lambda_authorize(headers, body)
           result = JSON.parse(body)
           attacher = load(result.delete('context'))
           incoming_auth_header = auth_header_hash(headers['Authorization'])
 
-          signer = build_signer(incoming_auth_header['Credential'].split('/'),
-                                JSON.parse(attacher.record.__send__(:"#{attacher.data_attribute}"))['metadata']['key'],
-                                headers['x-amz-security-token'])
-          signature = signer.sign_request(
-            http_method: 'PUT',
-            url:         Shrine.opts[:callback_url],
-            headers:     { 'X-Amz-Date' => headers['X-Amz-Date'] },
-            body:        body
+          signer = build_signer(
+            incoming_auth_header['Credential'].split('/'),
+            JSON.parse(attacher.record.__send__(:"#{attacher.data_attribute}") || '{}').dig('metadata', 'key') || 'key',
+            headers['x-amz-security-token']
           )
+          signature = signer.sign_request(http_method: 'PUT',
+                                          url:         Shrine.opts[:callback_url],
+                                          headers:     { 'X-Amz-Date' => headers['X-Amz-Date'] },
+                                          body:        body)
           calculated_signature = auth_header_hash(signature.headers['authorization'])['Signature']
           return false if incoming_auth_header['Signature'] != calculated_signature
 
@@ -121,8 +138,8 @@ class Shrine
         # the specified `callbackUrl`.
         def lambda_process(data)
           cached_file = uploaded_file(data['attachment'])
-          assembly = Shrine.lambda_default_values
-          assembly.merge!(store.lambda_process(cached_file, context))
+          assembly = lambda_default_values
+          assembly.merge!(store.lambda_process_versions(cached_file, context))
           function = assembly.delete(:function)
           raise Error, 'No Lambda function specified!' unless function
           raise Error, "Function #{function} not available on Lambda!" unless function_available?(function)
@@ -144,7 +161,7 @@ class Shrine
         # Deletes the signing key, if it is present in the original file's metadata, converts the result to a JSON
         # string, and writes this string into the `data_attribute` of the Shrine attacher's record.
         #
-        # Chooses the `save_methodz` either for the ActiveRecord or for Sequel, and saves the record.
+        # Chooses the `save_method` either for the ActiveRecord or for Sequel, and saves the record.
         # @param [Hash] result
         def lambda_save(result)
           versions = result['versions']
@@ -167,6 +184,20 @@ class Shrine
         end
 
         private
+
+        def lambda_default_values
+          { callbackURL:    Shrine.opts[:callback_url],
+            copy_original:  true,
+            storages:       buckets_to_use(%i[cache store]),
+            target_storage: :store }
+        end
+
+        # @param [Array] buckets that will be sent to Lambda function for use
+        def buckets_to_use(buckets)
+          buckets.map do |b|
+            { b.to_s => { name: Shrine.storages[b].bucket.name, prefix: Shrine.storages[b].prefix } }
+          end.inject(:merge!)
+        end
 
         # A cached instance of an AWS Lambda client.
         def lambda_client
@@ -221,20 +252,6 @@ class Shrine
                                                                      function_version: function_version,
                                                                      marker:           marker,
                                                                      max_items:        items).functions
-        end
-
-        # @param [Array] buckets that will be sent to Lambda function for use
-        def buckets_to_use(buckets)
-          buckets.map do |b|
-            { b.to_s => { name: Shrine.storages[b].bucket.name, prefix: Shrine.storages[b].prefix } }
-          end.inject(:merge!)
-        end
-
-        def lambda_default_values
-          { callbackURL:    Shrine.opts[:callback_url],
-            copy_original:  true,
-            storages:       Shrine.buckets_to_use(%i[cache store]),
-            target_storage: :store }
         end
       end
     end
