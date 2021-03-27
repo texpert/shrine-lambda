@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'aws-sdk-lambda'
+require 'shrine'
 
 class Shrine
   module Plugins
