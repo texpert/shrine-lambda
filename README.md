@@ -30,7 +30,7 @@ Shrine-Lambda's setup. So, the invoking application must provide a HTTP endpoint
 
 Add Shrine-Lambda gem to the application's Gemfile:
 
-```
+```ruby
 gem 'shrine-lambda'
 ```
 
@@ -40,10 +40,10 @@ Run `$ bundle install` command in the application's root folder to install the g
 Note, that for working with AWS, the AWS credentials (the `access_key_id` and the `secret_access_key`) should be set 
 either in the [Shrine] initializer, or in [default profile][AWS profiles] in the `~/.aws` folder.
 
-```
+```ruby
 # config/initializers/shrine.rb:
 
-...
+# ...
 
   s3_options = { access_key_id:     'your_aws_access_key_id',
                  secret_access_key: 'your_aws_secret_access_key',
@@ -56,10 +56,10 @@ Add to the [Shrine]'s initializer file the Shrine-Lambda plugin registration wit
 the [AWS Lambda] functions list retrieval call (which will retrieve the functions list on application initialization 
 and will store the list into the `Shrine.opts[:lambda_function_list]` for further checking):
 
-```
+```ruby
 # config/initializers/shrine.rb:
 
-...
+# ...
 
   Shrine.plugin :lambda, s3_options.merge(callback_url: "https://#{ENV.fetch('APP_HOST')}/lambda")
   Shrine.lambda_function_list
@@ -74,7 +74,7 @@ Srine-Lamda uses the [Shrine backgrounding plugin] for asynchronous operation, s
 Here is a full example of a Shrine initializer of a [Rails] application using [Roda] endpoints for presigned_url's 
 (used for direct file uploads to [AWS S3]) and [AWS Lambda] callbacks:
 
-```
+```ruby
 # config/initializers/shrine.rb:
 
 # frozen_string_literal: true
@@ -173,7 +173,7 @@ the Lambda function's `:access_key_id` received in the request authorization hea
 
 Shrine-Lambda assemblies are built inside the `#lambda_process_versions` method in the `LambdaUploader` class:
 
-```
+```ruby
 # app/uploaders/lambda_uploader.rb:
 
 # frozen_string_literal: true
@@ -230,7 +230,7 @@ enable the uploader to deal with different processed versions of the original fi
 
 The default options used by Shrine-Lambda plugin are the following:
 
-```
+```ruby
   { callbackURL:    Shrine.opts[:callback_url],
     copy_original:  true,
     storages:       Shrine.buckets_to_use(%i[cache store]),
@@ -239,7 +239,7 @@ The default options used by Shrine-Lambda plugin are the following:
 
 These options could be overrided in the `LambdaUploader` specifying them as the `assembly` keys:
 
-```
+```ruby
   assembly[:callbackURL]    = some_callback_url]
   assembly[:copy_original   = false               # If this is `false`, only the processed file versions will be stored     
   assembly[:storages]       = Shrine.buckets_to_use(%i[cache store other_store])
@@ -255,7 +255,7 @@ Any S3 buckets could be specified, as long as the buckets are defined in the Shr
 A `:callbackUrl` endpoint should be implemented to catch the [AWS Lambda] processing results, authorize, and save them. 
 Here is an example of a [Roda] endpoint:
 
-```
+```ruby
 # lib/rapi/base.rb:
 
 # frozen_string_literal: true
@@ -303,7 +303,7 @@ to put it into a background job. This is configured in the `LambdaUploader` clas
 
 Then the job file should be implemented:
 
-```
+```ruby
 # app/jobs/lambda_promote_job.rb:
 
 # frozen_string_literal: true
@@ -313,8 +313,75 @@ class LambdaPromoteJob < ApplicationJob
     Timeout.timeout(30) { Shrine::Attacher.lambda_process(data) }
   end
 end
-
 ```
+
+### Gem Maintenance
+
+#### Preparing a release
+
+Merge all the pull requests that should make it into the new release into the `main` branch, then checkout and pull the
+branch and run the `github_changelog_generator`, specifying the new version as a `--future-release` command line 
+parameter:
+
+```bash
+$ git checkout main
+$ git pull
+
+$ github_changelog_generator -u texpert -p shrine-lambda --future-release v0.1.1
+```
+
+Then add the changes to `git`, commit and push the `Preparing the new release` commit directly into the `main` branch:
+
+```bash
+$ git add .
+$ git commit -m 'Preparing the new v0.1.1 release'
+$ git push
+```
+
+#### RubyGems credentials
+
+Ensure you have the RubyGems credentials located in the `~/.gem/credentials` file.
+
+#### Adding a gem owner
+
+```bash
+$ gem owner shrine-lambda -a friend@example.com
+```
+
+#### Building a new gem version
+
+Adjust the new gem version number in the `lib/shrine/plugins/lambda/version.rb` file. It is used when building the gem
+by the following command:
+
+```bash
+$ gem build shrine-lambda.gemspec
+```
+
+Assuming the version was set to `0.1.1`, a `shrine-lambda-0.1.1.gem` binary file will be generated at the root of the app (repo).
+
+- The binary file shouldn't be added into the `git` tree, it will be pushed into the RubyGems and to the GitHub releases
+
+#### Pushing a new gem release to RubyGems
+
+```bash
+$ gem push shrine-lambda-0.1.1.gem # don't forget to specify the correct version number
+```
+
+#### Crafting the new release on GitHub
+
+On the [Releases page](https://github.com/texpert/shrine-lambda/releases) push the `Draft a new release` button.
+
+The new release editing page opens, on which the following actions could be taken:
+
+- Choose the repo branch (default is `main`)
+- Insert a tag version (usually, the tag should correspond to the gem's new version, v0.0.1, for example)
+ - the tag will be created by GitHub on the last commit into the chosen branch
+- Fill the release Title and Description
+- Attach the binary file with the generated gem version
+- If the release is not yet ready for production, mark the `This is a pre-release` checkbox
+- Press either the `Publish release`, or the `Save draft button` if you want to publish it later
+ - After publishing the release, the the binary gem file will be available on GitHub and could be removed locally
+
 
 ## Inspiration
 
