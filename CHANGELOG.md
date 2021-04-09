@@ -1,12 +1,28 @@
 # Changelog
 
-## [0.1.0](https://github.com/texpert/shrine-lambda/tree/0.1.0) (2020-05-25)
+    DEPRECATION NOTICE: shrine-lambda gem will be renamed to shrine-aws-lambda for clarity
 
-[Full Changelog](https://github.com/texpert/shrine-lambda/compare/v0.0.1...0.1.0)
+    The current version, 0.1.1, is the last version under the shrine-lambda name.
+
+    Thank you for using this gem!
+
+## [v0.1.1](https://github.com/texpert/shrine-lambda/tree/v0.1.1) (2021-04-09)
+
+[Full Changelog](https://github.com/texpert/shrine-lambda/compare/v0.1.0...v0.1.1)
+
+**Merged pull requests:**
+
+- Add Gem Maintenance chapter, language labels to markdown code to README.md [\#20](https://github.com/texpert/shrine-lambda/pull/20) ([texpert](https://github.com/texpert))
+- Set post-install deprecation notice about renaming the gem, add version file [\#19](https://github.com/texpert/shrine-lambda/pull/19) ([texpert](https://github.com/texpert))
+- Fix uninitialized constant Shrine::Error when adding shrine-lambda to… [\#18](https://github.com/texpert/shrine-lambda/pull/18) ([texpert](https://github.com/texpert))
+
+## [v0.1.0](https://github.com/texpert/shrine-lambda/tree/v0.1.0) (2020-05-24)
+
+[Full Changelog](https://github.com/texpert/shrine-lambda/compare/v0.0.1...v0.1.0)
 
 **Breaking changes:**
 
-- BREAKING CHANGE: Uploader's `:lambda\_process` method renamed to `:lambda\_process\_versions` [\#14](https://github.com/texpert/shrine-lambda/pull/14) ([texpert](https://github.com/texpert))
+- BREAKING CHANGE: Uploader's `:lambda_process` method renamed to `:lambda_process_versions` [\#14](https://github.com/texpert/shrine-lambda/pull/14) ([texpert](https://github.com/texpert))
 
 **Implemented enhancements:**
 
@@ -14,17 +30,18 @@
 
 **Merged pull requests:**
 
+- Prepare the 0.1.0 release [\#16](https://github.com/texpert/shrine-lambda/pull/16) ([texpert](https://github.com/texpert))
 - Added github\_changelog\_generator as a development dependency [\#15](https://github.com/texpert/shrine-lambda/pull/15) ([texpert](https://github.com/texpert))
 - Release v. 0.0.1 [\#11](https://github.com/texpert/shrine-lambda/pull/11) ([texpert](https://github.com/texpert))
 - Prepairing for release. [\#10](https://github.com/texpert/shrine-lambda/pull/10) ([texpert](https://github.com/texpert))
 - Plugin documentation. [\#9](https://github.com/texpert/shrine-lambda/pull/9) ([texpert](https://github.com/texpert))
-- Comply with Shrine's `upload\_options` plugin to be able to set ACL's … [\#8](https://github.com/texpert/shrine-lambda/pull/8) ([texpert](https://github.com/texpert))
+- Comply with Shrine's `upload_options` plugin to be able to set ACL's … [\#8](https://github.com/texpert/shrine-lambda/pull/8) ([texpert](https://github.com/texpert))
 - Finalized and documented the authorization and saving methods.  [\#7](https://github.com/texpert/shrine-lambda/pull/7) ([texpert](https://github.com/texpert))
-- Fixed the class of `lambda\_client`. [\#6](https://github.com/texpert/shrine-lambda/pull/6) ([texpert](https://github.com/texpert))
+- Fixed the class of `lambda_client`. [\#6](https://github.com/texpert/shrine-lambda/pull/6) ([texpert](https://github.com/texpert))
 - AWS session security token is now used to calculate request signature… [\#5](https://github.com/texpert/shrine-lambda/pull/5) ([texpert](https://github.com/texpert))
 - Authorization of Lambda requests to `callbackURL` implemented by calc… [\#4](https://github.com/texpert/shrine-lambda/pull/4) ([texpert](https://github.com/texpert))
-- `:lambda\_process` methods implementation and `:configure` method refactoring [\#3](https://github.com/texpert/shrine-lambda/pull/3) ([texpert](https://github.com/texpert))
-- Fix of `:configure` and implementation of client and  `:lambda\_function\_list` methods. [\#2](https://github.com/texpert/shrine-lambda/pull/2) ([texpert](https://github.com/texpert))
+- `:lambda_process` methods implementation and `:configure` method refactoring [\#3](https://github.com/texpert/shrine-lambda/pull/3) ([texpert](https://github.com/texpert))
+- Fix of `:configure` and implementation of client and  `:lambda_function_list` methods. [\#2](https://github.com/texpert/shrine-lambda/pull/2) ([texpert](https://github.com/texpert))
 - Initial gem and plugin config [\#1](https://github.com/texpert/shrine-lambda/pull/1) ([texpert](https://github.com/texpert))
 
 ## [v0.0.1](https://github.com/texpert/shrine-lambda/tree/v0.0.1) (2018-02-12)
