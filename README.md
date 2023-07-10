@@ -1,3 +1,7 @@
+# Out of maintenance
+
+This gem is now archived, being replaced by the [shrine-aws-lambda](https://github.com/texpert/shrine-aws-lambda)
+
 # Shrine::Plugins::Lambda
 Provides [AWS Lambda] integration for [Shrine] File Attachment toolkit for Ruby applications
 
